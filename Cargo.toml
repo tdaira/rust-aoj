@@ -1,0 +1,11 @@
+[package]
+name = "rust-aoj"
+version = "0.1.0"
+authors = ["tdaira <asada09403@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+[[bin]]
+name = "0009"
+path = "src/0009/main.rs"
