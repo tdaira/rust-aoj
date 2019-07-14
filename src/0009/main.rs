@@ -1,21 +1,15 @@
-use rust_aoj::io::value_reader::ValueReader;
-use rust_aoj::io::value_writer::ValueWriter;
+use std::io::stdin;
 
 fn main() {
-    let reader = ValueReader::new(Box::new(std::io::stdin()));
-    let writer = ValueWriter::new(Box::new(std::io::stdout()));
-
-    sieve(reader, writer);
-}
-
-pub fn sieve(mut reader: ValueReader, mut writer: ValueWriter) {
     loop {
-        let end: i32 = match reader.read() {
-            Some(end) => end,
-            None => return
+        let mut s = String::new();
+        stdin().read_line(&mut s).unwrap();
+        let end: i32 = match s.trim().parse() {
+            Ok(end) => end,
+            Err(_) => return
         };
         if end < 2 {
-            writer.write(0).unwrap();
+            println!("{}", 0);
             continue;
         }
         // Create vector for prime number flags which manages only the odd number.
@@ -37,6 +31,6 @@ pub fn sieve(mut reader: ValueReader, mut writer: ValueWriter) {
             }
         }
         // Count flags and add one for skip of two;
-        writer.write(flags.iter().filter(|x| **x).count() + 1).unwrap();
+        println!("{}", flags.iter().filter(|x| **x).count() + 1);
     }
 }
