@@ -9,12 +9,12 @@ fn main() {
         let mut s = String::new();
         stdin().read_line(&mut s).unwrap();
         let line = s.trim();
-        calc(line);
+        println!("{:?}", calc(line));
     }
 }
 
-fn calc(line: &str) {
-    println!("{:?}", exec_rpn(sort_to_rpn(tokenize(line))));
+fn calc(line: &str) -> i32 {
+    exec_rpn(sort_to_rpn(tokenize(line)))
 }
 
 // Split the line by operators.
