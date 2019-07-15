@@ -57,23 +57,17 @@ fn sort_to_rpn(tokens: Vec<String>) -> Vec<String> {
                                     if priority <= last_priority {
                                         rpn.push(buf.pop().unwrap());
                                     } else {
-                                        buf.push(token);
                                         break
                                     }
                                 }
                                 // case of "("
-                                None => {
-                                    buf.push(token);
-                                    break
-                                }
+                                None => { break }
                             }
                         },
-                        None => {
-                            buf.push(token);
-                            break
-                        }
+                        None => { break }
                     }
                 }
+                buf.push(token);
             },
             None => {
                 // Handle operators without priority.
