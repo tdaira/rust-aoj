@@ -1,5 +1,9 @@
 use std::io::stdin;
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::collections::binary_heap::BinaryHeap;
+use std::cmp::Ordering;
 
 struct Point {
     id: i64,
@@ -7,29 +11,81 @@ struct Point {
     y: i64,
 }
 
-fn calc(point_list: &mut Vec<Point>) -> i64 {
+impl PartialEq for Point {
+    fn eq(&self, other: &Point) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Point {}
+
+impl Hash for Point {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        self.x.hash(state);
+        self.y.hash(state);
+    }
+}
+
+struct PointDistance<'a> {
+    point1: &'a Point,
+    point2: &'a Point,
+    distance: i64,
+}
+
+impl<'a> PartialOrd for PointDistance<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.distance.cmp(&other.distance).reverse())
+    }
+}
+
+impl<'a> Ord for PointDistance<'a> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.distance.cmp(&other.distance).reverse()
+    }
+}
+
+impl<'a> PartialEq for PointDistance<'a> {
+    fn eq(&self, other: &PointDistance) -> bool {
+        self.point1 == other.point1
+            && self.point2 == other.point2
+            && self.distance == other.distance
+    }
+}
+
+impl<'a> Eq for PointDistance<'a> {}
+
+fn calc(point_list: &Vec<Point>) -> i64 {
     let mut dist_list = Vec::new();
-    let mut point_list_map: HashMap<i64, &Point> =
-        point_list.iter().map(|point| (point.id, point) ).collect();
-    let mut finished_list = Vec::new();
+    let mut point_map: HashMap<&Point, ()> =
+        point_list.iter().map(|point| (point, ()) ).collect();
+    let mut finished_map: HashMap<&Point, ()> = HashMap::new();
+    let mut binary_heap = BinaryHeap::new();
     // Remove single key.
-    let point = point_list_map.remove(&point_list[0].id).unwrap();
-    finished_list.push(point);
-    while !point_list_map.is_empty() {
-        let mut min: i64 = std::i64::MAX;
-        let mut min_point_id = None;
-        for finished in &finished_list {
-            for unfinished in point_list_map.iter().map(|t| t.1) {
-                let dist = get_dist(finished, unfinished);
-                if min > dist {
-                    min = dist;
-                    min_point_id = Option::Some(unfinished.id);
-                }
+    let mut last_finished = &point_list[0];
+    point_map.remove(last_finished).unwrap();
+    finished_map.insert(last_finished, ());
+    while !point_map.is_empty() {
+        for unfinished in &point_map {
+            let dist = get_dist(last_finished, unfinished.0);
+            binary_heap.push(PointDistance{
+                point1: last_finished,
+                point2: unfinished.0,
+                distance: dist});
+        }
+        let mut min_point = None;
+        loop {
+            let min = binary_heap.pop().unwrap();
+            if !finished_map.contains_key(min.point2) {
+                min_point = Some(min);
+                break;
             }
         }
-        dist_list.push(min);
-        finished_list.push(point_list_map[&min_point_id.unwrap()]);
-        point_list_map.remove(&min_point_id.unwrap());
+        let min_content = min_point.unwrap();
+        last_finished = min_content.point2;
+        dist_list.push(min_content.distance);
+        finished_map.insert(min_content.point2, ());
+        point_map.remove(min_content.point2);
     }
     dist_list.iter().sum()
 }
@@ -56,5 +112,5 @@ fn main() {
             .map(|e| e.parse().unwrap()).collect();
         point_list.push(Point{ id: i, x: vals[0], y: vals[1]});
     }
-    println!("{:?}", calc(point_list));
+    println!("{:?}", calc(&*point_list));
 }
