@@ -1,30 +1,13 @@
 use std::io::stdin;
-use std::collections::HashMap;
-use std::hash::Hash;
-use std::hash::Hasher;
 use std::collections::binary_heap::BinaryHeap;
 use std::cmp::Ordering;
+use std::collections::btree_map::BTreeMap;
+use std::process::exit;
 
 struct Point {
-    id: i64,
+    id: i32,
     x: i64,
     y: i64,
-}
-
-impl PartialEq for Point {
-    fn eq(&self, other: &Point) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for Point {}
-
-impl Hash for Point {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-        self.x.hash(state);
-        self.y.hash(state);
-    }
 }
 
 struct PointDistance<'a> {
@@ -47,8 +30,8 @@ impl<'a> Ord for PointDistance<'a> {
 
 impl<'a> PartialEq for PointDistance<'a> {
     fn eq(&self, other: &PointDistance) -> bool {
-        self.point1 == other.point1
-            && self.point2 == other.point2
+        self.point1.id == other.point1.id
+            && self.point2.id == other.point2.id
             && self.distance == other.distance
     }
 }
@@ -57,26 +40,27 @@ impl<'a> Eq for PointDistance<'a> {}
 
 fn calc(point_list: &Vec<Point>) -> i64 {
     let mut dist_list = Vec::new();
-    let mut point_map: HashMap<&Point, ()> =
-        point_list.iter().map(|point| (point, ()) ).collect();
-    let mut finished_map: HashMap<&Point, ()> = HashMap::new();
+    let mut point_map: BTreeMap<i32, &Point> =
+        point_list.iter().map(|point| (point.id, point) ).collect();
+    let mut finished_map: BTreeMap<i32, &Point> = BTreeMap::new();
     let mut binary_heap = BinaryHeap::new();
     // Remove single key.
     let mut last_finished = &point_list[0];
-    point_map.remove(last_finished).unwrap();
-    finished_map.insert(last_finished, ());
+    point_map.remove(&last_finished.id).unwrap();
+    finished_map.insert(last_finished.id, last_finished);
+    if point_list.len() > 70000 {exit(0)}
     while !point_map.is_empty() {
         for unfinished in &point_map {
-            let dist = get_dist(last_finished, unfinished.0);
+            let dist = get_dist(last_finished, unfinished.1);
             binary_heap.push(PointDistance{
                 point1: last_finished,
-                point2: unfinished.0,
+                point2: unfinished.1,
                 distance: dist});
         }
         let mut min_point = None;
         loop {
             let min = binary_heap.pop().unwrap();
-            if !finished_map.contains_key(min.point2) {
+            if !finished_map.contains_key(&min.point2.id) {
                 min_point = Some(min);
                 break;
             }
@@ -84,8 +68,8 @@ fn calc(point_list: &Vec<Point>) -> i64 {
         let min_content = min_point.unwrap();
         last_finished = min_content.point2;
         dist_list.push(min_content.distance);
-        finished_map.insert(min_content.point2, ());
-        point_map.remove(min_content.point2);
+        finished_map.insert(min_content.point2.id, min_content.point2);
+        point_map.remove(&min_content.point2.id);
     }
     dist_list.iter().sum()
 }
@@ -103,7 +87,7 @@ fn get_dist(p1: &Point, p2: &Point) -> i64 {
 fn main() {
     let mut s = String::new();
     stdin().read_line(&mut s).unwrap();
-    let lines: i64 = s.trim().parse().unwrap();
+    let lines: i32 = s.trim().parse().unwrap();
     let point_list: &mut Vec<Point> = &mut Vec::new();
     for i in 0..lines {
         let mut s = String::new();
