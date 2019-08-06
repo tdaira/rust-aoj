@@ -1,8 +1,8 @@
 use std::io::stdin;
 use std::collections::binary_heap::BinaryHeap;
 use std::cmp::Ordering;
-use std::collections::btree_map::BTreeMap;
 use std::process::exit;
+use std::collections::HashMap;
 
 struct Point {
     id: i32,
@@ -40,36 +40,56 @@ impl<'a> Eq for PointDistance<'a> {}
 
 fn calc(point_list: &Vec<Point>) -> i64 {
     let mut dist_list = Vec::new();
-    let mut point_map: BTreeMap<i32, &Point> =
+    let mut point_map: HashMap<i32, &Point> =
         point_list.iter().map(|point| (point.id, point) ).collect();
-    let mut finished_map: BTreeMap<i32, &Point> = BTreeMap::new();
-    let mut binary_heap = BinaryHeap::new();
+    let mut finished_map: HashMap<i32, &Point> = HashMap::new();
+    let mut point2_map:HashMap<i32, PointDistance> = HashMap::new();
     // Remove single key.
     let mut last_finished = &point_list[0];
     point_map.remove(&last_finished.id).unwrap();
     finished_map.insert(last_finished.id, last_finished);
-    if point_list.len() > 70000 {exit(0)}
     while !point_map.is_empty() {
+        point2_map.remove(&last_finished.id);
         for unfinished in &point_map {
             let dist = get_dist(last_finished, unfinished.1);
-            binary_heap.push(PointDistance{
-                point1: last_finished,
-                point2: unfinished.1,
-                distance: dist});
-        }
-        let mut min_point = None;
-        loop {
-            let min = binary_heap.pop().unwrap();
-            if !finished_map.contains_key(&min.point2.id) {
-                min_point = Some(min);
-                break;
+            let before = point2_map.remove(&unfinished.1.id);
+            match before {
+                Some(pd) => {
+                    if pd.distance > dist {
+                        point2_map.insert(
+                            unfinished.1.id,
+                            PointDistance {
+                                point1: last_finished,
+                                point2: unfinished.1,
+                                distance: dist
+                            });
+                    } else {
+                        point2_map.insert(
+                            pd.point2.id,
+                            pd
+                        );
+                    }
+                },
+                None => {
+                    point2_map.insert(
+                        unfinished.1.id,
+                        PointDistance {
+                            point1: last_finished,
+                            point2: unfinished.1,
+                            distance: dist
+                        });
+                },
             }
         }
-        let min_content = min_point.unwrap();
-        last_finished = min_content.point2;
-        dist_list.push(min_content.distance);
-        finished_map.insert(min_content.point2.id, min_content.point2);
-        point_map.remove(&min_content.point2.id);
+        let mut binary_heap = BinaryHeap::new();
+        for dist in &point2_map {
+            binary_heap.push(dist.1);
+        }
+        let min_distance = binary_heap.pop().unwrap();
+        last_finished = min_distance.point2;
+        dist_list.push(min_distance.distance);
+        finished_map.insert(min_distance.point2.id, min_distance.point2);
+        point_map.remove(&min_distance.point2.id);
     }
     dist_list.iter().sum()
 }
