@@ -1,8 +1,7 @@
 use std::io::stdin;
-use std::collections::binary_heap::BinaryHeap;
 use std::cmp::Ordering;
-use std::process::exit;
 use std::collections::HashMap;
+use std::cell::RefCell;
 
 struct Point {
     id: i32,
@@ -10,88 +9,159 @@ struct Point {
     y: i64,
 }
 
-struct PointDistance<'a> {
-    point1: &'a Point,
-    point2: &'a Point,
+struct Edge {
+    point1: i32,
+    point2: i32,
     distance: i64,
 }
 
-impl<'a> PartialOrd for PointDistance<'a> {
+impl PartialOrd for Edge {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.distance.cmp(&other.distance).reverse())
     }
 }
 
-impl<'a> Ord for PointDistance<'a> {
+impl Ord for Edge {
     fn cmp(&self, other: &Self) -> Ordering {
         self.distance.cmp(&other.distance).reverse()
     }
 }
 
-impl<'a> PartialEq for PointDistance<'a> {
-    fn eq(&self, other: &PointDistance) -> bool {
-        self.point1.id == other.point1.id
-            && self.point2.id == other.point2.id
+impl PartialEq for Edge {
+    fn eq(&self, other: &Edge) -> bool {
+        self.point1 == other.point1
+            && self.point2 == other.point2
             && self.distance == other.distance
     }
 }
 
-impl<'a> Eq for PointDistance<'a> {}
+impl Eq for Edge {}
 
-fn calc(point_list: &Vec<Point>) -> i64 {
-    let mut dist_list = Vec::new();
-    let mut point_map: HashMap<i32, &Point> =
-        point_list.iter().map(|point| (point.id, point) ).collect();
-    let mut finished_map: HashMap<i32, &Point> = HashMap::new();
-    let mut point2_map:HashMap<i32, PointDistance> = HashMap::new();
-    // Remove single key.
-    let mut last_finished = &point_list[0];
-    point_map.remove(&last_finished.id).unwrap();
-    finished_map.insert(last_finished.id, last_finished);
-    while !point_map.is_empty() {
-        point2_map.remove(&last_finished.id);
-        for unfinished in &point_map {
-            let dist = get_dist(last_finished, unfinished.1);
-            let before = point2_map.remove(&unfinished.1.id);
-            match before {
-                Some(pd) => {
-                    if pd.distance > dist {
-                        point2_map.insert(
-                            unfinished.1.id,
-                            PointDistance {
-                                point1: last_finished,
-                                point2: unfinished.1,
-                                distance: dist
-                            });
-                    } else {
-                        point2_map.insert(
-                            pd.point2.id,
-                            pd
-                        );
+struct AutoDeleteBTree {
+    v: RefCell<Vec<Edge>>,
+    finished: RefCell<HashMap<i32, ()>>,
+}
+
+impl AutoDeleteBTree {
+    pub fn new() -> AutoDeleteBTree {
+        AutoDeleteBTree{
+            v: RefCell::new(Vec::new()),
+            finished: RefCell::new(HashMap::new())
+        }
+    }
+    pub fn add_finished(&mut self, id: i32) {
+        let mut mut_map = self.finished.borrow_mut();
+        mut_map.insert(id, ());
+    }
+
+    pub fn add(&mut self, edge: Edge) {
+        let mut mut_vec = self.v.borrow_mut();
+        mut_vec.push(edge);
+        let mut current_index = mut_vec.len() - 1;
+        let mut parent_index = self.parent_id(current_index);
+        while current_index != 0 {
+            if mut_vec.get(current_index).unwrap().distance
+                < mut_vec.get(parent_index).unwrap().distance {
+                mut_vec.swap(current_index, parent_index);
+            }
+            current_index = parent_index;
+            parent_index = self.parent_id(current_index)
+        }
+        if self.finished.borrow_mut().contains_key(&mut_vec.last().unwrap().point2) {
+            mut_vec.pop();
+        }
+    }
+
+    pub fn pop_while_valid(&mut self) {
+        while !self.pop() {}
+    }
+
+    fn pop(&mut self) -> bool {
+        let mut mut_vec = self.v.borrow_mut();
+        let ref_map = self.finished.borrow();
+        if !ref_map.contains_key(&mut_vec.first().unwrap().point2) {
+            return true;
+        }
+        let last_index = mut_vec.len() - 1;
+        mut_vec.swap(0, last_index);
+        mut_vec.pop();
+        let mut current_index = 0;
+        loop {
+            let left_child_index = self.left_child_id(current_index);
+            let right_child_index = self.right_child_id(current_index);
+            let current = mut_vec.get(current_index).unwrap().distance;
+            let mut swap_flag = false;
+            match mut_vec.get(left_child_index) {
+                Some(edge) => {
+                    if edge.distance < current {
+                        swap_flag = true;
                     }
                 },
-                None => {
-                    point2_map.insert(
-                        unfinished.1.id,
-                        PointDistance {
-                            point1: last_finished,
-                            point2: unfinished.1,
-                            distance: dist
-                        });
-                },
+                None => break,
             }
+            if swap_flag {
+                mut_vec.swap(current_index, left_child_index);
+                current_index = left_child_index;
+                continue;
+            }
+            match mut_vec.get(right_child_index) {
+                Some(edge) => {
+                    if edge.distance < current {
+                        swap_flag = true
+                    }
+                },
+                None => break,
+            }
+            if swap_flag {
+                mut_vec.swap(current_index, right_child_index);
+                current_index = right_child_index;
+                continue;
+            }
+            break;
         }
-        let mut binary_heap = BinaryHeap::new();
-        for dist in &point2_map {
-            binary_heap.push(dist.1);
-        }
-        let min_distance = binary_heap.pop().unwrap();
-        last_finished = min_distance.point2;
-        dist_list.push(min_distance.distance);
-        finished_map.insert(min_distance.point2.id, min_distance.point2);
-        point_map.remove(&min_distance.point2.id);
+        false
     }
-    dist_list.iter().sum()
+
+    fn parent_id(&self, child_id: usize) -> usize {
+        ((child_id as i32 - 1) / 2) as usize
+    }
+
+    fn left_child_id(&self, parent_id: usize) -> usize {
+        (parent_id as i32 * 2 + 1) as usize
+    }
+
+    fn right_child_id(&self, parent_id: usize) -> usize {
+        (parent_id as i32 * 2 + 2) as usize
+    }
+
+    pub fn min_id(&self) -> i32 {
+        self.v.borrow()[0].point2
+    }
+
+    pub fn min_dist(&self) -> i64 {
+        self.v.borrow()[0].distance
+    }
+}
+
+fn calc(point_list: &Vec<Point>) -> i64 {
+    let mut tree = AutoDeleteBTree::new();
+    let mut unfinished: HashMap<i32, &Point> = point_list.iter()
+        .map(|point| (point.id, point)).collect();
+    let mut last_finished = unfinished.remove(&0).unwrap();
+    let mut distance = 0;
+    while unfinished.len() > 0 {
+        tree.add_finished(last_finished.id);
+        for point in &unfinished {
+            tree.add(Edge{
+                point1: last_finished.id,
+                point2: point.1.id,
+                distance: get_dist(last_finished, point.1)});
+        }
+        tree.pop_while_valid();
+        distance += tree.min_dist();
+        last_finished = unfinished.remove(&tree.min_id()).unwrap();
+    }
+    distance
 }
 
 fn get_dist(p1: &Point, p2: &Point) -> i64 {
