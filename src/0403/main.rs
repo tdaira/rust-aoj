@@ -1,5 +1,4 @@
 use std::io::stdin;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::cell::RefCell;
 
@@ -10,32 +9,9 @@ struct Point {
 }
 
 struct Edge {
-    point1: i32,
     point2: i32,
     distance: i64,
 }
-
-impl PartialOrd for Edge {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.distance.cmp(&other.distance).reverse())
-    }
-}
-
-impl Ord for Edge {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.distance.cmp(&other.distance).reverse()
-    }
-}
-
-impl PartialEq for Edge {
-    fn eq(&self, other: &Edge) -> bool {
-        self.point1 == other.point1
-            && self.point2 == other.point2
-            && self.distance == other.distance
-    }
-}
-
-impl Eq for Edge {}
 
 struct AutoDeleteBTree {
     v: RefCell<Vec<Edge>>,
@@ -172,7 +148,6 @@ fn calc(point_list: &Vec<Point>) -> i64 {
         tree.add_finished(last_finished.id);
         for point in &unfinished {
             tree.add(Edge{
-                point1: last_finished.id,
                 point2: point.1.id,
                 distance: get_dist(last_finished, point.1)});
         }
