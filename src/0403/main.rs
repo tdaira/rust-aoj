@@ -56,19 +56,37 @@ impl AutoDeleteBTree {
 
     pub fn add(&mut self, edge: Edge) {
         let mut mut_vec = self.v.borrow_mut();
-        mut_vec.push(edge);
+        let finished = self.finished.borrow();
+        let mut can_over_write = false;
+        match mut_vec.last() {
+            Some(e) => {
+                if finished.contains_key(&e.point2) {
+                    can_over_write = true;
+                } else {
+                    can_over_write = false;
+                }
+            },
+            None => {
+                can_over_write = false;
+            },
+        }
+        if can_over_write {
+            let len = mut_vec.len();
+            mut_vec[len - 1] = edge;
+        } else {
+            mut_vec.push(edge);
+        }
         let mut current_index = mut_vec.len() - 1;
         let mut parent_index = self.parent_id(current_index);
         while current_index != 0 {
             if mut_vec.get(current_index).unwrap().distance
                 < mut_vec.get(parent_index).unwrap().distance {
                 mut_vec.swap(current_index, parent_index);
+                current_index = parent_index;
+                parent_index = self.parent_id(current_index);
+            } else {
+                break;
             }
-            current_index = parent_index;
-            parent_index = self.parent_id(current_index)
-        }
-        if self.finished.borrow_mut().contains_key(&mut_vec.last().unwrap().point2) {
-            mut_vec.pop();
         }
     }
 
