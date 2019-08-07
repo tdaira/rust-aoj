@@ -76,7 +76,7 @@ impl AutoDeleteBTree {
         while !self.pop() {}
     }
 
-    fn pop(&mut self) -> bool {
+    pub fn pop(&mut self) -> bool {
         let mut mut_vec = self.v.borrow_mut();
         let ref_map = self.finished.borrow();
         if !ref_map.contains_key(&mut_vec.first().unwrap().point2) {
@@ -90,32 +90,33 @@ impl AutoDeleteBTree {
             let left_child_index = self.left_child_id(current_index);
             let right_child_index = self.right_child_id(current_index);
             let current = mut_vec.get(current_index).unwrap().distance;
-            let mut swap_flag = false;
+            let mut left_distance = std::i64::MAX;
+            let mut right_distance = std::i64::MAX;
             match mut_vec.get(left_child_index) {
                 Some(edge) => {
-                    if edge.distance < current {
-                        swap_flag = true;
-                    }
+                    left_distance = edge.distance;
                 },
-                None => break,
-            }
-            if swap_flag {
-                mut_vec.swap(current_index, left_child_index);
-                current_index = left_child_index;
-                continue;
+                None => {
+                    left_distance = std::i64::MAX;
+                },
             }
             match mut_vec.get(right_child_index) {
                 Some(edge) => {
-                    if edge.distance < current {
-                        swap_flag = true
-                    }
+                    right_distance = edge.distance;
                 },
-                None => break,
+                None => {
+                    right_distance = std::i64::MAX;
+                },
             }
-            if swap_flag {
+            if left_distance < current && left_distance <= right_distance {
+                mut_vec.swap(current_index, left_child_index);
+                current_index = left_child_index;
+                continue
+            }
+            if right_distance < current && right_distance <= left_distance {
                 mut_vec.swap(current_index, right_child_index);
                 current_index = right_child_index;
-                continue;
+                continue
             }
             break;
         }
